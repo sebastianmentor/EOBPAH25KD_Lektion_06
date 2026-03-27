@@ -55,28 +55,43 @@ class B:
 
 class C(B):
     def my_method(self):
+        super().my_method()
         print("overide B my_method with C my_method")
         print("my_method in c!")
+
+class D(A):
+    def my_own_method(self):
+        print("I am class D and dont override my_method!")
+
+class E(D,C):
+    def my_method(self):
+        super().my_method()
+        print("My_method in E!")
 
 def run_my_method(objects:list):
     for ob in objects:
         ob.my_method()
+        print()
+
 
 if __name__ == "__main__":
-    # now = datetime.now()
-    # t1 = Transaction(2, 20, TransactionType.WITHDRAW, now)
-    # print(t1)
-    # t2 = Transaction(2, 20, TransactionType.WITHDRAW, now)
-    # print(f"{t1 == t2=}")
+    now = datetime.now()
+    t1 = Transaction(2, 20, TransactionType.WITHDRAW, now)
+    print(t1)
+    t2 = Transaction(2, 20, TransactionType.WITHDRAW, now)
+    print(f"{t1 == t2=}")
 
-    # a1 = Account(2, 0, AccountType.SALARY)
+    a1 = Account(2, 0, AccountType.SALARY)
 
-    # print(a1)
-    a = A()
-    b = B()
-    c = C()
+    print(a1)
+    # a = A()
+    # b = B()
+    # c = C()
+    # d = D()
+    # e = E()
 
-    # a.my_method()
-    # b.my_method()
-    # c.my_method()
-    run_my_method([a,b,c, "hejsan"])
+    # # a.my_method()
+    # # b.my_method()
+    # # c.my_method()
+    # # run_my_method([a,b,c,d,"hejsan"])
+    # run_my_method([a,b,c,d,e])

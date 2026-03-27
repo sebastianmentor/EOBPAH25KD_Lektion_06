@@ -30,6 +30,9 @@ class Point:
 
     def __add__(self, other:"Point") -> "Point":
         return Point(self.x + other.x, self.y + other.y)
+    
+    def __str__(self) -> str:
+        return f"({self.x}, {self.y})"
 
     def __repr__(self) -> str:
         return f"Point(x={self.x}, y={self.y})"
@@ -39,7 +42,9 @@ class Vector:
         self.origo = Point(0.0,0.0)
         self.v = Point(x,y)
 
-
+    def __str__(self):
+        return f"Vector from {self.origo} to {self.v}"
+    
 p1 = Point(1.0,2.0)
 p2 = Point(3.5,1.3)
 
@@ -54,3 +59,6 @@ print(f"{p1<p2=}")
 print(f"{p1>p2=}")
 print(f"{p4>p3=}")
 print(f"{p3>=p4=}")
+
+v = Vector(4.0, 3.0)
+print(v)
