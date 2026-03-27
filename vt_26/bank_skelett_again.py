@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
 from typing import Optional
+from pathlib import Path
 
 ############ GLOBALS ###################
 ACCOUNTS_FILE = "accounts.txt"
+TRANSACTIONS_DIR = "transactions"
 DT_FORMAT = "%Y%m%d-%H:%M:%S"
 ############ END GLOBALS ###############
 
@@ -77,14 +79,20 @@ class Account:
         self._make_transaction(amount, TransactionType.DEPOSIT)
         self._saldo += amount
 
-    def _make_transaction(self, amount:int, type:TransactionType):
+    def _make_transaction(self, amount:int, trans_type:TransactionType):
+        transaction_time = datetime.now()
         new_transaction = Transaction(
             account_number=self.account_number,
             amount=amount,
-            type=type,
-            time=datetime.now()
+            type=trans_type,
+            time=transaction_time
             )
         self._transactions.append(new_transaction)
+        transaction_path = Path(TRANSACTIONS_DIR) / Path(str(self.account_number)+".txt")
+
+        with open(transaction_path, "a") as f:
+            f.write(f"{trans_type.value},{transaction_time.strftime(DT_FORMAT)},{amount}\n")
+
 
     def __str__(self) -> str:
         return  f"Account Number: {self._account_number}\n" \
@@ -108,82 +116,120 @@ class Bank:
         new_account = Account(new_account_number, 0, account_type)
         self._accounts[new_account_number] = new_account
 
-    def _parse_transactions(self, s:str) -> list[Transaction]:
-        if s[0] != "[" or s[-1] != "]":
-            raise ValueError("Not correct format!")
-        s = s[1:-1]
-        t = []
-        if not s: return []
+    def _parse_transactions(self, s:str, acc_nr:int) -> list[Transaction]:
+        list_of_transactions = []
+        for transaction_row in s.split("\n"):
+            t_type, t_time, amount = transaction_row.split(",")
+            list_of_transactions.append(
+                Transaction(
+                    acc_nr, 
+                    int(amount),
+                    TransactionType(int(t_type)),
+                    datetime.strptime(t_time, DT_FORMAT)
+                ))
 
-        lts = s.split("|")
-        lts = lts[:-1]
-
-        for st in lts:
-            acc_nr, amount, t_type, time = st.strip().split(",")
-            acc_nr = int(acc_nr)
-            amount = int(amount)
-            t_type = TransactionType(int(t_type))
-            time = datetime.strptime(time, DT_FORMAT)
-            t.append(Transaction(acc_nr, amount, t_type, time))
-
-        return t
-
-    def _serialize_transactions(self, lt:list[Transaction]) -> list[str]:
-        st = []
-        for t in lt:
-            s = f"{t.account_number},{t.amount},{t.type.value},{t.time.strftime(DT_FORMAT)}|"
-            st.append(s)
-
-        return st
+        return list_of_transactions
 
     def load_accounts(self, accounts_file=ACCOUNTS_FILE):
         if self._accounts:
             raise ValueError("Accounts already loaded?????")
 
         with open(accounts_file, "r") as f:
-            for line in f.readlines():
-                try:
-                    line = line.strip()
-                    t_start = line.index("[")
-                    acc_data = line[:t_start]
+            for acc_row in f.readlines():
+                acc_num, saldo, type_v = acc_row.strip().split(",")
+                trans_path = Path(TRANSACTIONS_DIR) / Path(acc_num + ".txt")
+                if trans_path.exists():
+                    with open(trans_path, "r") as f:
+                        trans_string = f.read().strip()
+    
+                    transactions = self._parse_transactions(trans_string,int(acc_num))
+                else:
+                    transactions = []
 
-                    acc_nr, saldo, a_type = acc_data[:-1].split(",")
-                    acc_nr = int(acc_nr)
-                    saldo = int(saldo)
-                    a_type = AccountType(int(a_type))
+                new_acc = Account(
+                    int(acc_num), 
+                    int(saldo), 
+                    AccountType(int(type_v)),
+                    transactions)
+                
 
-                    trans = line[t_start:].replace("'","")
-                    trans = self._parse_transactions(trans)
+                self._accounts[int(acc_num)] = new_acc
+            
 
-                    account = Account(acc_nr, saldo, a_type, trans)
-                    self._accounts[acc_nr] = account
-
-                except ValueError as e:
-                    print("All go to hell! Shutdown needed")
-                    exit(-1)
+    
 
     def save_accounts(self, accounts_file=ACCOUNTS_FILE):
         with open(accounts_file, "w") as f:
             for acc in self._accounts.values():
-                s_acc = f"{acc.account_number},{acc.saldo},{acc.type.value},"
-                s_acc += f"{self._serialize_transactions(acc.transactions)}"
-                f.write(s_acc + "\n")
+                f.write(f"{acc.account_number},{acc.saldo},{acc.type.value}\n")
 
 
 ############ END Classes###############
 
 ############ FUNCTIONS ################
 
-def account_menu(acc:Account) -> None:
-    ...
+def withdraw(acc:Account):
+    try:
+        amount = int(input("Enter amount:"))
+    except ValueError:
+        print("Amount must be a integer!")
+        return
+    if amount > 0:
+        if amount < acc.saldo:
+            acc.withdraw(amount)
+        else:
+            print("Insufficient fund! Poor bastard!")
+    else:
+        print("Amount must be more then zero!")
 
+
+
+def deposit(acc:Account):
+    try:
+        amount = int(input("Enter amount:"))
+    except ValueError:
+        print("Amount must be a integer!")
+        return
+    if amount > 0:
+        acc.deposit(amount)
+    else:
+        print("Amount must be more then zero!")
+
+def print_transactions(acc:Account):
+    for trans in acc.transactions:
+        print(trans)
+
+def account_menu(acc:Account) -> None:
+    while True:
+        print("1. Withdraw")
+        print("2. Deposit")
+        print("3. Saldo")
+        print("4. Transactions")
+        print("0. Return")
+
+        acc_choice = input("Enter choice: ")
+
+        match acc_choice:
+            case "1":
+                withdraw(acc)
+            case "2":
+                deposit(acc)
+            case "3":
+                print(acc.saldo)
+            case "4":
+                print_transactions(acc)
+            case "0":
+                return
+            case _:
+                ...
 
 def run_atm(bank_connection:Bank) -> None:
     print("Welcome to the best ATM ever! Enjoy!")
 
     while True:
         print("1. Login")
-        print("2. Shutdown")
+        print("2. Create account")
+        print("0. Shutdown")
 
         choice = input("Enter choice: ")
 
@@ -199,11 +245,30 @@ def run_atm(bank_connection:Bank) -> None:
                 else:
                     print("Account does not exist!")
 
+        if choice == "2":
+            try:
+                new_account_number = int(input("Enter new account number: "))
+            except ValueError:
+                print("Invalid accountnumber! Must be a account number!")
+                continue
+            
+            try:
+                bank_connection.create_account(new_account_number, AccountType.CREDIT)
+            except ValueError:
+                continue
+            
+            print("Account Created!")
+            
+        if choice == "0": break
                             
 
 def main():
+    acc_file = Path(ACCOUNTS_FILE)
     bank = Bank()
-    bank.load_accounts()
+    if acc_file.exists:
+        bank.load_accounts()
+    else:
+        acc_file.touch()
     run_atm(bank)
     # acc1 = bank.get_account(1)
     # print(acc1)
